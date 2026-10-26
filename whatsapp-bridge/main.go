@@ -9,10 +9,12 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -46,15 +48,63 @@ type MessageStore struct {
 	db *sql.DB
 }
 
+func whatsappStoreDir() (string, error) {
+	var dataDir string
+	switch runtime.GOOS {
+	case "windows":
+		dataDir = os.Getenv("LOCALAPPDATA")
+		if !filepath.IsAbs(dataDir) {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return "", fmt.Errorf("failed to find user home directory: %w", err)
+			}
+			dataDir = filepath.Join(homeDir, "AppData", "Local")
+		}
+	case "darwin":
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to find user home directory: %w", err)
+		}
+		dataDir = filepath.Join(homeDir, "Library", "Application Support")
+	default:
+		dataDir = os.Getenv("XDG_DATA_HOME")
+		if !filepath.IsAbs(dataDir) {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return "", fmt.Errorf("failed to find user home directory: %w", err)
+			}
+			dataDir = filepath.Join(homeDir, ".local", "share")
+		}
+	}
+	return filepath.Join(dataDir, "whatsapp-client", "store"), nil
+}
+
+func sqliteFileDSN(path string) string {
+	uriPath := filepath.ToSlash(path)
+	if runtime.GOOS == "windows" && !strings.HasPrefix(uriPath, "/") {
+		uriPath = "/" + uriPath
+	}
+	return (&url.URL{
+		Scheme:   "file",
+		Path:     uriPath,
+		RawQuery: "_foreign_keys=on",
+	}).String()
+}
+
 // Initialize message store
 func NewMessageStore() (*MessageStore, error) {
+	storeDir, err := whatsappStoreDir()
+	if err != nil {
+		return nil, err
+	}
+
 	// Create directory for database if it doesn't exist
-	if err := os.MkdirAll("store", 0755); err != nil {
+	if err := os.MkdirAll(storeDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create store directory: %v", err)
 	}
 
 	// Open SQLite database for messages
-	db, err := sql.Open("sqlite3", "file:store/messages.db?_foreign_keys=on")
+	db, err := sql.Open("sqlite3", sqliteFileDSN(filepath.Join(storeDir, "messages.db")))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open message database: %v", err)
 	}
@@ -794,13 +844,19 @@ func main() {
 	// Create database connection for storing session data
 	dbLog := waLog.Stdout("Database", "INFO", true)
 
+	storeDir, err := whatsappStoreDir()
+	if err != nil {
+		logger.Errorf("Failed to configure store directory: %v", err)
+		return
+	}
+
 	// Create directory for database if it doesn't exist
-	if err := os.MkdirAll("store", 0755); err != nil {
+	if err := os.MkdirAll(storeDir, 0755); err != nil {
 		logger.Errorf("Failed to create store directory: %v", err)
 		return
 	}
 
-	container, err := sqlstore.New(context.Background(), "sqlite3", "file:store/whatsapp.db?_foreign_keys=on", dbLog)
+	container, err := sqlstore.New(context.Background(), "sqlite3", sqliteFileDSN(filepath.Join(storeDir, "whatsapp.db")), dbLog)
 	if err != nil {
 		logger.Errorf("Failed to connect to database: %v", err)
 		return

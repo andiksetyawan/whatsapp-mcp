@@ -2,12 +2,29 @@ import sqlite3
 from datetime import datetime
 from dataclasses import dataclass
 from typing import Optional, List, Tuple
-import os.path
+import os
+import sys
+from pathlib import Path
 import requests
 import json
 import audio
 
-MESSAGES_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'whatsapp-bridge', 'store', 'messages.db')
+if os.name == 'nt':
+    _local_app_data = os.environ.get('LOCALAPPDATA')
+    if _local_app_data and Path(_local_app_data).is_absolute():
+        _data_dir = Path(_local_app_data)
+    else:
+        _data_dir = Path.home() / 'AppData' / 'Local'
+elif sys.platform == 'darwin':
+    _data_dir = Path.home() / 'Library' / 'Application Support'
+else:
+    _xdg_data_home = os.environ.get('XDG_DATA_HOME')
+    if _xdg_data_home and Path(_xdg_data_home).is_absolute():
+        _data_dir = Path(_xdg_data_home)
+    else:
+        _data_dir = Path.home() / '.local' / 'share'
+
+MESSAGES_DB_PATH = str(_data_dir / 'whatsapp-client' / 'store' / 'messages.db')
 WHATSAPP_API_BASE_URL = "http://localhost:8080/api"
 
 @dataclass

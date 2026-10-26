@@ -178,6 +178,6 @@ By default, just the metadata of the media is stored in the local database. The 
 - **WhatsApp Already Logged In**: If your session is already active, the Go bridge will automatically reconnect without showing a QR code.
 - **Device Limit Reached**: WhatsApp limits the number of linked devices. If you reach this limit, you'll need to remove an existing device from WhatsApp on your phone (Settings > Linked Devices).
 - **No Messages Loading**: After initial authentication, it can take several minutes for your message history to load, especially if you have many chats.
-- **WhatsApp Out of Sync**: If your WhatsApp messages get out of sync with the bridge, delete both database files (`whatsapp-bridge/store/messages.db` and `whatsapp-bridge/store/whatsapp.db`) and restart the bridge to re-authenticate.
+- **WhatsApp Out of Sync**: If your WhatsApp messages get out of sync with the bridge, delete `messages.db` and `whatsapp.db` from the app data folder and restart the bridge to re-authenticate. The folder is `~/Library/Application Support/whatsapp-client/store` on macOS, `$XDG_DATA_HOME/whatsapp-client/store` (or `~/.local/share/whatsapp-client/store`) on Linux, and `%LOCALAPPDATA%\whatsapp-client\store` on Windows.
 
 For additional Claude Desktop integration troubleshooting, see the [MCP documentation](https://modelcontextprotocol.io/quickstart/server#claude-for-desktop-integration-issues). The documentation includes helpful tips for checking logs and resolving common issues.
